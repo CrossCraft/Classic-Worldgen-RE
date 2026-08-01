@@ -1,11 +1,20 @@
 # Classic Worldgen RE
 
-A clean-room effort to produce a byte-identical specification and pure reference
-implementation of Minecraft Classic (c0.30-era) world generation.
+A two-author clean-room effort to produce a byte-identical specification and
+pure reference implementation of Minecraft Classic (c0.30-era) world
+generation.
 
 The project treats the original server as a black box: a signed 64-bit seed and
 level dimensions go in, and the generated block array comes out. The eventual
 oracle will reproduce that array without containing or depending on Mojang code.
+
+## Project status
+
+- **Harness:** operational
+- **Formal specification:** v1 complete; convergence revisions expected
+- **Differential fuzzer:** in progress
+- **Reference oracle:** in progress
+- **Accuracy claim:** pending reproducible differential testing
 
 ## Goals
 
@@ -22,7 +31,7 @@ integer conversion can change the final world.
 
 ## Clean-room model
 
-The work is split between two independent roles:
+The work and authorship are split between two independent roles:
 
 - **Harness and oracle:** Maintains this repository, operates the original JAR
   only through the black-box harness, and implements the reference oracle solely
@@ -46,6 +55,10 @@ to locate the seed and dimension injection points and to extract the final
 block array. The reference oracle is implemented exclusively from the published
 mathematical specification and does not incorporate any knowledge of the 
 original generation algorithm obtained during harness construction.
+
+This separation also permits third parties with no exposure to the original JAR
+or harness internals to produce independently clean implementations from the
+published specification.
 
 ## Harness
 
@@ -133,10 +146,10 @@ docker run --rm \
 - [ ] Pure reference oracle implemented from the specification
 - [ ] Published test corpus and continuous soak testing
 
-## Specification
+## Specification v1
 
-The mathematical specification is complete. `spec/` holds a Lean 4
-formalization of the full generation pipeline, one module per stage:
+Specification v1 covers the full generation pipeline. `spec/` holds its Lean 4
+formalization, one module per stage:
 
 - `Spec/Random.lean` — the 48-bit LCG state, seed initialization, and the
   derived semantics of bounded and unbounded draws
@@ -153,7 +166,11 @@ formalization of the full generation pipeline, one module per stage:
 It contains only axioms, opaque constants, type declarations, and property
 theorems -- no evaluable code, no comments -- and builds green via
 `just spec-build` with no outstanding `sorry`s. The authoring rules are in
-`spec/README.MD`.
+`spec/README.MD`. The specification is intentionally non-executable: it is the
+formal communication boundary between the analysis author and implementation
+author. Ambiguities discovered while implementing and fuzzing are resolved by
+revising the specification, not by exposing the implementation author to the
+original generator.
 
 ## Agent loop
 
