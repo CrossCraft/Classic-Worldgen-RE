@@ -16,6 +16,20 @@ oracle will reproduce that array without containing or depending on Mojang code.
 - **Reference oracle:** in progress
 - **Accuracy claim:** pending reproducible differential testing
 
+## The experiment
+
+Specification v1 was produced in approximately 90 minutes of active work by a
+human-supervised LLM agent loop. The wider project uses two human supervisors
+and separate agent loops to explore whether formal, non-executable
+specifications, strict information boundaries, and human review can make
+agent-assisted clean-room reverse engineering both rapid and independently
+reproducible.
+
+The agents are used to preserve specialization rather than collapse the two
+roles into a source-rewriting pipeline: one agent loop studies and formalizes
+the original generator, while the other implements from the published
+specification without receiving the original analysis material.
+
 ## Goals
 
 - Document the generator as a precise mathematical specification.
