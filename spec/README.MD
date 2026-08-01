@@ -31,6 +31,20 @@ Forbidden:
 - Comments of any kind: no `--`, no `/- -/`. Explanation belongs in
   `dirty/NOTES.md`, never in the spec.
 
+## Naming
+
+- Declarations are named after the mathematical object or its role in the
+  generation pipeline (e.g. `multiplier`, `heightScale`, `beachThreshold`).
+- Never reuse identifiers from the original program — no class, method, or
+  field names, and no paraphrases that track them one-to-one. The private
+  mapping from original identifiers to spec names lives in `dirty/NOTES.md`.
+- Publicly documented Java standard library API names (e.g. `nextInt`,
+  `nextBits` of `java.util.Random`) are acceptable: they denote published
+  behavior, treated here as mathematical operations.
+- File and namespace organization follows the mathematical pipeline
+  (seed → noise → heightmap → ...), never the original program's class
+  structure or call graph.
+
 ## Layout
 
 - One file per pipeline stage under `Spec/` (e.g. `Spec/Random.lean`,
