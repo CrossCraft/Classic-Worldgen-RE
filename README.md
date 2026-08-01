@@ -122,9 +122,32 @@ docker run --rm \
 
 - [x] Dockerized black-box harness with controlled seed injection
 - [x] Raw block-array extraction and repeatability verification
+- [x] Mathematical specification of the full generation pipeline (Lean 4)
 - [ ] Differential fuzzer
-- [ ] Mathematical specification and pure reference oracle
+- [ ] Pure reference oracle implemented from the specification
 - [ ] Published test corpus and continuous soak testing
+
+## Specification
+
+The mathematical specification is complete. `spec/` holds a Lean 4
+formalization of the full generation pipeline, one module per stage:
+
+- `Spec/Random.lean` — the 48-bit LCG state, seed initialization, and the
+  derived semantics of bounded and unbounded draws
+- `Spec/Noise.lean` — the shuffled permutation, fade curve, gradient
+  interpolation, and octave summation
+- `Spec/Terrain.lean` — the elevation heightfield, strata placement, and
+  sea-level filling
+- `Spec/Carve.lean` — cave count, trajectories, and shape rules
+- `Spec/Ore.lean` — coal, iron, and gold vein counts, depth ranges, and
+  growth
+- `Spec/Level.lean` — surface passes, flowers, mushrooms, trees, and the
+  end-to-end pipeline ordering
+
+It contains only axioms, opaque constants, type declarations, and property
+theorems -- no evaluable code, no comments -- and builds green via
+`just spec-build` with no outstanding `sorry`s. The authoring rules are in
+`spec/README.MD`.
 
 ## Agent loop
 
