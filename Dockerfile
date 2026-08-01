@@ -1,7 +1,14 @@
 FROM eclipse-temurin:17-jdk-jammy
 
-RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+RUN apt-get update && apt-get install -y --no-install-recommends python3 curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+ARG LEAN_TOOLCHAIN=leanprover/lean4:v4.32.2
+RUN curl -sSfL https://elan.lean-lang.org/elan-init.sh \
+        | sh -s -- -y --default-toolchain "${LEAN_TOOLCHAIN}" \
+    && /root/.elan/bin/elan default "${LEAN_TOOLCHAIN}"
+ENV PATH="/root/.elan/bin:${PATH}"
+RUN lean --version && lake --version
 
 COPY src/main/java /tmp/src
 COPY src/main/resources/META-INF/MANIFEST.MF /tmp/MANIFEST.MF

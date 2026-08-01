@@ -62,6 +62,20 @@ test: build
       --workdir /work \
       "{{ image }}" -m unittest discover -s tests -v
 
+# Build the Lean specification inside the harness image.
+spec-build: build
+    docker run --rm --entrypoint lake \
+      --mount "type=bind,source={{ root }}/spec,target=/spec" \
+      --workdir /spec \
+      "{{ image }}" build
+
+# Open an interactive shell in the harness image with the spec mounted.
+spec-shell: build
+    docker run --rm -it --entrypoint bash \
+      --mount "type=bind,source={{ root }}/spec,target=/spec" \
+      --workdir /spec \
+      "{{ image }}"
+
 _check-jar:
     @test -f "{{ classic_jar }}" || { \
       echo "classic JAR not found: {{ classic_jar }}" >&2; \

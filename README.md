@@ -126,6 +126,29 @@ docker run --rm \
 - [ ] Mathematical specification and pure reference oracle
 - [ ] Published test corpus and continuous soak testing
 
+## Agent loop
+
+Role 2 (analysis and specification) runs as an LLM agent loop with user
+oversight:
+
+- `prompt/AGENTS.md` is the agent's system prompt: the Role-2 identity, hard
+  rules (never commit/push/PR; all work left unstaged), and the working loop.
+- `prompt/GOALS.md` holds the staged roadmap. Each stage is a ready-to-paste
+  `/goal` block; the user assigns one stage at a time.
+- `dirty/` is the agent's git-ignored workspace for RE artifacts, dumps, and
+  running notes (`dirty/NOTES.md`). Nothing in it can be committed.
+- `spec/` is the only clean deliverable: Lean 4 axioms, opaque constants, and
+  property theorems -- no evaluable code, no comments. The full rule set is in
+  `spec/README.MD`.
+
+The harness image ships a pinned Lean toolchain (installed via elan in the
+Dockerfile, matching `spec/lean-toolchain`). Spec recipes:
+
+```sh
+just spec-build  # Build the Lean spec in the harness image
+just spec-shell  # Interactive shell in the image with spec/ mounted
+```
+
 ## Legal
 
 This repository is intended for interoperability and archival research. It does
