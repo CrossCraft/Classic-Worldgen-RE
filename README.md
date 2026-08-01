@@ -35,6 +35,8 @@ Only the specification, independent oracle code, test vectors, and compact
 failure records cross that boundary. Decompiled sources, instrumented binaries,
 stage dumps, and analysis logs do not belong in this repository.
 
+The harness required limited reverse-engineering of the original server solely to locate the seed and dimension injection points and to extract the final block array. The reference oracle is implemented exclusively from the published mathematical specification and does not incorporate any knowledge of the original generation algorithm obtained during harness construction.
+
 ## Harness
 
 The current harness supports the Minecraft Classic server 1.10 JAR shape. A
