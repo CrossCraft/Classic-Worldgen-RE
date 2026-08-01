@@ -8,3 +8,7 @@ LICENSE
 # Never send a locally-supplied jar into the build context;
 # the jar is mounted at runtime by design.
 *.jar
+__pycache__
+*.py[cod]
+tests
+out

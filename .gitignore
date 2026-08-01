@@ -1,3 +1,7 @@
 classic.jar
 
 dirty/
+__pycache__/
+*.py[cod]
+build/
+out/
