@@ -35,6 +35,12 @@ Only the specification, independent oracle code, test vectors, and compact
 failure records cross that boundary. Decompiled sources, instrumented binaries,
 stage dumps, and analysis logs do not belong in this repository.
 
+Each role is staffed by one human driving an AI agent loop: two people total,
+each directing an LLM agent that does the hands-on work (harness operation and
+oracle implementation on one side, reverse engineering and formalization on
+the other) under human oversight. The boundary above is enforced by keeping
+the two agent loops separate and letting only the published artifacts cross.
+
 The harness required limited reverse-engineering of the original server solely 
 to locate the seed and dimension injection points and to extract the final 
 block array. The reference oracle is implemented exclusively from the published
