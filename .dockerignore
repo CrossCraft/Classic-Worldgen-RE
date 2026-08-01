@@ -1,0 +1,10 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+LICENSE
+
+# Never send a locally-supplied jar into the build context;
+# the jar is mounted at runtime by design.
+*.jar
