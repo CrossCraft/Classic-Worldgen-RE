@@ -14,7 +14,7 @@ build:
     docker build -t "{{ image }}" "{{ root }}"
 
 # Generate a seed at an optional power-of-two width, height, and depth.
-run seed width="256" height="256" depth="64": _check-jar
+run seed width="256" height="64" depth="256": _check-jar
     harness_jar_path="$(realpath "{{ classic_jar }}")"; \
     docker run --rm \
       --mount "type=bind,source=$harness_jar_path,target=/harness/classic.jar,readonly" \
@@ -22,7 +22,7 @@ run seed width="256" height="256" depth="64": _check-jar
       --width "{{ width }}" --height "{{ height }}" --depth "{{ depth }}"
 
 # Check repeatability and an adjacent-seed control.
-verify seed width="256" height="256" depth="64": _check-jar
+verify seed width="256" height="64" depth="256": _check-jar
     harness_jar_path="$(realpath "{{ classic_jar }}")"; \
     docker run --rm \
       --mount "type=bind,source=$harness_jar_path,target=/harness/classic.jar,readonly" \
@@ -30,8 +30,17 @@ verify seed width="256" height="256" depth="64": _check-jar
       --width "{{ width }}" --height "{{ height }}" --depth "{{ depth }}" \
       --verify
 
+# Report block IDs and verify plausible terrain-material quantities.
+composition seed="12345" width="256" height="64" depth="256": _check-jar
+    harness_jar_path="$(realpath "{{ classic_jar }}")"; \
+    docker run --rm \
+      --mount "type=bind,source=$harness_jar_path,target=/harness/classic.jar,readonly" \
+      "{{ image }}" --seed "{{ seed }}" \
+      --width "{{ width }}" --height "{{ height }}" --depth "{{ depth }}" \
+      --composition --check-composition
+
 # Generate a level and retain its raw block array under CLASSIC_OUT_DIR.
-extract seed filename="level.blocks" width="256" height="256" depth="64": _check-jar
+extract seed filename="level.blocks" width="256" height="64" depth="256": _check-jar
     mkdir -p "{{ output_dir }}"
     harness_jar_path="$(realpath "{{ classic_jar }}")"; \
     harness_output_path="$(realpath "{{ output_dir }}")"; \

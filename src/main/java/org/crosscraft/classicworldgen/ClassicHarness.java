@@ -24,7 +24,8 @@ public final class ClassicHarness {
 
         Object level = generatorClass
                 .getMethod("a", String.class, int.class, int.class, int.class)
-                .invoke(generator, "harness", width, height, depth);
+                // The generator takes width, horizontal depth, vertical height.
+                .invoke(generator, "harness", width, depth, height);
         return (byte[]) level.getClass().getField("blocks").get(level);
     }
 

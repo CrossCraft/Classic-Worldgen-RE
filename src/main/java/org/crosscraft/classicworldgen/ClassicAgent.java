@@ -13,6 +13,8 @@ public final class ClassicAgent {
     private static final byte[] RANDOM = ascii("java/util/Random");
     private static final byte[] SEEDED_RANDOM = ascii("harness/SeedRand");
 
+    // Generator fields are width, horizontal depth, vertical height. Its final
+    // Level.setData call reorders them to width, height, depth.
     private static final byte[] FIXED_DIMENSION_SETUP = hex(
             "2a110100b50041" + "2a110100b50042" + "2a1040b50043"
                     + "2a1020b50046" + "2a110100100878100678bc08b50045");

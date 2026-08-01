@@ -65,28 +65,35 @@ just build
 just run 12345
 ```
 
-Dimensions default to `256 256 64` and can be supplied after the seed:
+Dimensions are ordered as width, vertical height, and horizontal depth. They
+default to `256 64 256` and can be supplied after the seed:
 
 ```sh
-just run 12345 128 128 64
+just run 12345 128 64 128
 ```
 
 Each dimension must be a power of two and at least 16. The total volume must fit
 in a Java array. A successful run emits one JSON object:
 
 ```json
-{"seed":12345,"width":256,"height":256,"depth":64,"sha256":"823a2139e9a41e0b00c617eb5050ae73d4899f2275a3ec29a99a67eccb1a7f0a"}
+{"seed":12345,"width":256,"height":64,"depth":256,"sha256":"823a2139e9a41e0b00c617eb5050ae73d4899f2275a3ec29a99a67eccb1a7f0a"}
 ```
 
 Other useful recipes are:
 
 ```sh
 just verify 12345                 # Check repeatability and an adjacent seed
+just composition 12345           # Count block IDs and sanity-check materials
 just extract 12345 level.blocks  # Write the raw block array under ./out
 just smoke                       # Build and run the default verification
 just test                        # Run the Python unit tests in the image
 just                             # List every recipe
 ```
+
+`just composition` defaults to seed `12345`. Its JSON includes every block ID
+present (with its symbolic name, count, and percentage), plus combined water,
+dirt, stone, grass, logs, leaves, lava, and ore groups. It exits unsuccessfully
+when those groups fall outside deliberately broad, dimension-normalized bounds.
 
 The recipes recognize these environment variables:
 
