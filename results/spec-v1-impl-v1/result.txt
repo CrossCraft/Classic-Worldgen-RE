@@ -1,0 +1,26 @@
+Fuzzer completed against ~/Desktop/Classic-Worldgen/zig-out/bin/cl-wlgen.
+
+  - Runtime: 606 seconds
+  - Replay RNG seed: 7213220912201675537
+  - Cases: 162 total — 14 fixed, 148 random
+  - Exact matches: 38 (23.46%)
+  - Mismatches: 124
+  - Oracle errors: 0
+  - Blocks compared: 239,198,208
+  - Differing blocks: 534,411
+
+  Accuracy statistics:
+
+  - Mean per-world accuracy: 99.860607%
+  - Median: 99.919224%
+  - Volume-weighted accuracy: 99.776582%
+  - Mismatched-world mean: 99.817890%
+  - Lowest accuracy: 99.208498%
+  - Best non-exact accuracy: 99.999237%
+
+  The worst case was random:132:
+
+  - Seed: -4508108126435977754
+  - Dimensions: 128×32×512
+  - Differing blocks: 16,599 / 2,097,152
+  - First difference: (126, 6, 164), Java block 9, Zig block 0

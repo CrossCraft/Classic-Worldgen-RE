@@ -29,7 +29,8 @@ from typing import TextIO
 ROOT = Path(__file__).resolve().parent.parent
 
 LONG_MIN, LONG_MAX = -(1 << 63), (1 << 63) - 1
-DIM_EXPONENTS = range(4, 9)  # dimensions 16..256, all powers of two
+HORIZONTAL_EXPONENTS = range(4, 10)  # width/depth 16..512
+HEIGHT_EXPONENTS = range(4, 8)  # height 16..128
 
 # Cheap 64^3 shape for the seed sweep: LCG boundaries, zero, sign flips, and
 # the known-good harness seed.
@@ -53,6 +54,7 @@ SHAPE_CASES = [
     (16, 64, 16),
     (256, 16, 256),
     (256, 64, 256),
+    (512, 128, 512),
 ]
 SHAPE_SEED = 12345
 
@@ -93,9 +95,9 @@ def random_case(rng: random.Random, index: int) -> Case:
     return Case(
         f"random:{index}",
         rng.randrange(LONG_MIN, LONG_MAX + 1),
-        1 << rng.choice(DIM_EXPONENTS),
-        1 << rng.choice(DIM_EXPONENTS),
-        1 << rng.choice(DIM_EXPONENTS),
+        1 << rng.choice(HORIZONTAL_EXPONENTS),
+        1 << rng.choice(HEIGHT_EXPONENTS),
+        1 << rng.choice(HORIZONTAL_EXPONENTS),
     )
 
 
