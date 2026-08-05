@@ -524,7 +524,7 @@ inductive CanopyPlacement :
       (field finalField : Terrain.BlockField) (choice : Nat)
       (corner : canopyCorner base height position)
       (draw : Random.nextIntBounded state 2 = (choice, drawnState))
-      (kept : choice = 0 ∨ canopyLayer base height position = 3)
+      (kept : choice ≠ 0 ∧ canopyLayer base height position ≠ 3)
       (rest : CanopyPlacement base height remaining drawnState
         (overwriteBlock field position foliageId) finalState finalField) :
       CanopyPlacement base height (position :: remaining) state field
@@ -537,7 +537,7 @@ inductive CanopyPlacement :
       (field finalField : Terrain.BlockField) (choice : Nat)
       (corner : canopyCorner base height position)
       (draw : Random.nextIntBounded state 2 = (choice, drawnState))
-      (skipped : choice ≠ 0 ∧ canopyLayer base height position ≠ 3)
+      (skipped : choice = 0 ∨ canopyLayer base height position = 3)
       (rest : CanopyPlacement base height remaining drawnState field
         finalState finalField) :
       CanopyPlacement base height (position :: remaining) state field
