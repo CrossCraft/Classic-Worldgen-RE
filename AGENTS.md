@@ -15,8 +15,8 @@ Use these sources, in this order:
 
 1. The original JAR and original-side harness, studied privately.
 2. The existing mathematical declarations under `spec/`.
-3. The approved compact v2 handoff at
-   `results/spec-v2-impl-v2/handoff-human2-2026-08-05/`.
+3. The approved compact v3 residual handoff at
+   `results/spec-v3-impl-v3/handoff-human2-2026-08-05/`.
 4. Public documentation for Java numeric and standard-library behavior when a
    specification declaration already requires that behavior.
 
@@ -57,8 +57,8 @@ It may contain mathematics only. Never copy original code, original identifier
 names, decompiler output, control flow, source-shaped pseudocode, dumps, hashes,
 or analysis commentary into it.
 
-The user-requested `AGENTS.md` and existing project-process documents are
-clean administrative material, but do not modify them unless the user asks.
+Project-process documents are clean administrative material, but do not modify
+them unless the user asks.
 
 ## Git and worktree rules
 
@@ -105,8 +105,8 @@ must be supported by original-side evidence recorded in `dirty/NOTES.md`.
 
 ## Diagnostic stage protocol
 
-For the v2 primary case — seed `4340555035370659350`, dimensions
-`256 x 16 x 16` — align private original-side snapshots with these logical
+For the v3 primary case — seed `-5759849079018667514`, dimensions
+`512 x 16 x 512` — align private original-side snapshots with these logical
 boundaries:
 
 1. `00_soil.blocks` — initial soil and stone strata
@@ -132,7 +132,8 @@ as proof that the named pass is wrong: an unobserved value such as a heightmap,
 noise field, or PRNG state may have diverged earlier and become block-visible at
 that boundary. If necessary, add finer original-side instrumentation privately.
 
-Use the implementation-note hypotheses only after localization:
+Use these localization hypotheses only after finding the first differing
+boundary:
 
 - If `00_soil` differs, prioritize `Spec/Noise.lean` binary64 arithmetic and
   `Spec/Terrain.lean` declarations including `raisedHeight`, `erodedHeight`,
@@ -146,20 +147,22 @@ Use the implementation-note hypotheses only after localization:
   against the current declarative specification, but original-side evidence
   may still reveal an underspecified mutation rule.
 - If the first difference is `08_surface`, prioritize `surfaceHeight`,
-  `surfacedTerrain`, material thresholds, scan direction, and the exact field
-  consumed by the pass.
-- If all earlier stages match, inspect the first differing flora stage and its
-  eligibility, attempt counts, random draws, bounds, and mutation timing. If
-  the first difference is `11_trees`, use the v2 primary's compact final patch
-  only as a hypothesis generator; do not treat its block IDs or shape as proof
-  that tree semantics are the root cause.
+  `clampedSurfaceHeight`, `clampedSurfaceHeightLower`,
+  `surfacedTerrainSemantics`, material thresholds, scan direction, and the
+  exact field consumed by the pass. For the v3 primary, inspect the raw terrain
+  height, selected surface height, lower clamp endpoint, above-cell test, and
+  sand threshold at the affected columns. Do not merely relax the lower bound;
+  establish the complete endpoint behavior.
+- If `08_surface` matches, inspect the actual first differing flora or tree
+  stage and its eligibility, attempt counts, random draws, bounds, and mutation
+  timing. Do not infer a tree cause from the compact final residual alone.
 
 Do not force the evidence into these hypotheses. Record and follow the actual
 first divergence.
 
 ## Working loop
 
-1. Read this file, `spec/README.MD`, and the v2 handoff's `README.md`,
+1. Read this file, `spec/README.MD`, and the v3 handoff's `README.md`,
    `cases.jsonl`, and `oracle-stage-sha256.txt` completely.
 2. Read `dirty/NOTES.md` if it exists; otherwise create it before analysis.
 3. Run `just spec-build` to establish the clean-spec baseline.
@@ -170,11 +173,11 @@ first divergence.
 7. Instrument more finely inside that stage to determine the exact formula or
    operational semantic difference. Test competing hypotheses rather than
    inferring from the final material pair alone.
-8. Validate the finding against the v2 control matrix: the exact same-shape
-   control, matching primary-seed widths through `128 x 16 x 16`, the primary
-   `256 x 16 x 16` mismatch, and the `512 x 16 x 16` variant. Use the height
-   and depth variants as secondary confirmation cases. Check whether the same
-   corrected rule explains all of them without seed-specific exceptions.
+8. Validate the finding against the v3 primary and every retained control: the
+   two matching `512 x 16 x 512` same-shape controls (`random:102` and
+   `random:509`) and the matching fixed-large-shape control, seed `12345` at
+   `512 x 128 x 512`. Check whether the same corrected rule explains the
+   primary while preserving the controls without seed-specific exceptions.
 9. Update the smallest relevant portion of `spec/` with a complete mathematical
    correction or clarification.
 10. Run `just spec-build`. If the harness changed, also run `just smoke`.
@@ -215,8 +218,8 @@ Before reporting completion:
 - The first divergent stage is identified by a reproducible private checksum
   comparison, with unobserved earlier-state caveats investigated as needed.
 - The corrected semantics are checked against original-side numeric or state
-  traces for the v2 primary case, the exact same-shape control, and at least
-  one dimension probe from the v2 control matrix.
+  traces for the v3 primary case, both same-shape controls, and the
+  fixed-large-shape control.
 - The correction is general and contains no seed-, dimension-, coordinate-, or
   output-specific exception.
 - No raw world, stage dump, decompiled content, identifier map, or private trace
