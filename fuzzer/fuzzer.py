@@ -72,6 +72,16 @@ class Case:
         return self.width * self.height * self.depth
 
 
+# Residual mismatch discovered in the v3 campaign (originally random:261).
+V3_FAILURE_CASE = Case(
+    "regression:v3",
+    -5759849079018667514,
+    512,
+    16,
+    512,
+)
+
+
 def default_harness_command() -> str:
     return (
         f"python3 {ROOT / 'run_harness.py'} --jar {ROOT / 'classic.jar'}"
@@ -88,6 +98,7 @@ def fixed_cases() -> list[Case]:
         Case(f"shape:{w}x{h}x{d}", SHAPE_SEED, w, h, d)
         for w, h, d in SHAPE_CASES
     ]
+    cases.append(V3_FAILURE_CASE)
     return cases
 
 
