@@ -431,6 +431,18 @@ theorem floodReachabilityNeverMovesUpward
   | downward x y z reachable targetInside targetAir induction =>
       exact Nat.le_trans (Nat.le_succ y) (by simpa using induction)
 
+theorem floodReachabilityStartsInAir
+    (dimensions : Dimensions) (field : BlockField) (source target : Position)
+    (reachable : FloodReachable dimensions field source target) :
+    blockAt field source.x source.y source.z = airId := by
+  induction reachable with
+  | origin sourceInside sourceAir => exact sourceAir
+  | east position reachable targetInside targetAir induction => exact induction
+  | west x y z reachable targetInside targetAir induction => exact induction
+  | south position reachable targetInside targetAir induction => exact induction
+  | north x y z reachable targetInside targetAir induction => exact induction
+  | downward x y z reachable targetInside targetAir induction => exact induction
+
 axiom floodFill : Dimensions → BlockField → Position → Nat → BlockField
 
 axiom floodFillReachable
@@ -474,21 +486,39 @@ axiom boundaryWaterSourceSemantics
     (source.x = 0 ∨ source.x + 1 = dimensions.width ∨
       source.z = 0 ∨ source.z + 1 = dimensions.depth)
 
+opaque floodSubmissionEntry :
+  Dimensions → BlockField → Position → Position → Prop
+
+axiom floodSubmissionEntrySemantics
+    (dimensions : Dimensions) (field : BlockField)
+    (source entry : Position) :
+  floodSubmissionEntry dimensions field source entry ↔
+    inside dimensions source ∧
+    inside dimensions entry ∧
+    entry.y = source.y ∧
+    entry.z = source.z ∧
+    entry.x ≤ source.x ∧
+    blockAt field entry.x entry.y entry.z = airId ∧
+    ∀ x : Nat, entry.x ≤ x → x < source.x →
+      blockAt field x source.y source.z = airId
+
 axiom boundaryWaterPass : Dimensions → BlockField → BlockField
 
 axiom boundaryWaterPassFilled
     (dimensions : Dimensions) (field : BlockField) (target : Position)
-    (reached : ∃ source : Position,
+    (reached : ∃ source entry : Position,
       boundaryWaterSource dimensions source ∧
-      FloodReachable dimensions field source target) :
+      floodSubmissionEntry dimensions field source entry ∧
+      FloodReachable dimensions field entry target) :
   blockAt (boundaryWaterPass dimensions field)
     target.x target.y target.z = stillWaterId
 
 axiom boundaryWaterPassUnchanged
     (dimensions : Dimensions) (field : BlockField) (target : Position)
-    (notReached : ¬ ∃ source : Position,
+    (notReached : ¬ ∃ source entry : Position,
       boundaryWaterSource dimensions source ∧
-      FloodReachable dimensions field source target) :
+      floodSubmissionEntry dimensions field source entry ∧
+      FloodReachable dimensions field entry target) :
   blockAt (boundaryWaterPass dimensions field)
     target.x target.y target.z = blockAt field target.x target.y target.z
 
@@ -498,7 +528,35 @@ theorem boundaryWaterFillsEveryDownwardReachableAirCell
     (reachable : FloodReachable dimensions field source target) :
     blockAt (boundaryWaterPass dimensions field)
       target.x target.y target.z = stillWaterId :=
-  boundaryWaterPassFilled dimensions field target ⟨source, boundary, reachable⟩
+  boundaryWaterPassFilled dimensions field target ⟨source, source, boundary,
+    (floodSubmissionEntrySemantics dimensions field source source).mpr
+      ⟨(boundaryWaterSourceSemantics dimensions source).mp boundary |>.1,
+        (boundaryWaterSourceSemantics dimensions source).mp boundary |>.1,
+        rfl, rfl, Nat.le_refl source.x,
+        floodReachabilityStartsInAir dimensions field source target reachable,
+        by omega⟩,
+    reachable⟩
+
+theorem blockedBoundarySourceUsesWestwardAirInterval
+    (dimensions : Dimensions) (field : BlockField)
+    (source entry target : Position)
+    (boundary : boundaryWaterSource dimensions source)
+    (entryInside : inside dimensions entry)
+    (sameY : entry.y = source.y)
+    (sameZ : entry.z = source.z)
+    (west : entry.x < source.x)
+    (entryAir : blockAt field entry.x entry.y entry.z = airId)
+    (intervalAir : ∀ x : Nat, entry.x ≤ x → x < source.x →
+      blockAt field x source.y source.z = airId)
+    (_sourceBlocked : blockAt field source.x source.y source.z ≠ airId)
+    (reachable : FloodReachable dimensions field entry target) :
+  blockAt (boundaryWaterPass dimensions field)
+      target.x target.y target.z = stillWaterId :=
+  boundaryWaterPassFilled dimensions field target ⟨source, entry, boundary,
+    (floodSubmissionEntrySemantics dimensions field source entry).mpr
+      ⟨(boundaryWaterSourceSemantics dimensions source).mp boundary |>.1,
+        entryInside, sameY, sameZ, Nat.le_of_lt west, entryAir, intervalAir⟩,
+    reachable⟩
 
 inductive InlandWaterPlacement :
     Nat → Dimensions → Random.State → BlockField → Random.State → BlockField → Prop where
