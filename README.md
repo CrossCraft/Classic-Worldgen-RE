@@ -11,24 +11,29 @@ oracle will reproduce that array without containing or depending on Mojang code.
 ## Project status
 
 - **Harness:** operational
-- **Formal specification:** v1 complete; convergence revisions expected
-- **Differential fuzzer:** in progress
-- **Reference oracle:** in progress
-- **Accuracy claim:** pending reproducible differential testing
+- **Formal specification:** v4 exercised by the latest convergence campaign
+- **Differential fuzzer:** operational, with a replayable fixed corpus and
+  machine-readable reports
+- **Reference oracle:** v4 exercised against the black-box oracle
+- **Accuracy claim:** 100% agreement in the latest bounded campaign; long-term
+  validation is still pending
+- **Next phase:** long-term differential analysis (not yet run)
 
 ## The experiment
 
-Specification v1 was produced in approximately 90 minutes of active work by a
-human-supervised LLM agent loop. The wider project uses two human supervisors
-and separate agent loops to explore whether formal, non-executable
-specifications, strict information boundaries, and human review can make
-agent-assisted clean-room reverse engineering both rapid and independently
-reproducible.
+The initial v1 specification was produced in approximately 90 minutes of
+active work by a human-supervised LLM agent loop. Subsequent convergence
+revisions were driven by differential results while preserving the clean-room
+boundary. The wider project uses two human supervisors and separate agent
+loops to explore whether formal, non-executable specifications, strict
+information boundaries, and human review can make agent-assisted clean-room
+reverse engineering both rapid and independently reproducible.
 
 The agents are used to preserve specialization rather than collapse the two
 roles into a source-rewriting pipeline: one agent loop studies and formalizes
 the original generator, while the other implements from the published
-specification without receiving the original analysis material.
+specification without receiving the original analysis material. The loops 
+are ran by two different humans so no spillover knowledge exists.
 
 ## Goals
 
@@ -42,6 +47,23 @@ specification without receiving the original analysis material.
 Byte-for-byte compatibility matters because small differences in random-number
 consumption, floating-point evaluation, noise construction, bounds handling, or
 integer conversion can change the final world.
+
+## Differential results
+
+The latest bounded campaign, v4, ran for 600 seconds with replay RNG seed
+`20260805`. It covered 633 cases — 15 fixed edge, shape, and regression cases
+plus 618 random cases — and compared 1,018,912,768 blocks. All 633 cases
+matched exactly, with zero mismatches and zero oracle errors. The full
+[human-readable summary](results/spec-v4-impl-v4/result.txt),
+[JSONL campaign report](results/spec-v4-impl-v4/fuzz-2026-08-05.jsonl), and
+[fixed-corpus report](results/spec-v4-impl-v4/fixed-corpus-2026-08-05.jsonl)
+are checked in for replay and review.
+
+This is evidence of convergence on the exercised corpus, not a proof of
+equivalence for every valid seed and dimension combination. The next phase is
+long-term differential analysis, which has not yet run. It will extend testing
+across independent replay seeds and dimensions, retain compact reports and
+failure records, and repeatedly include the fixed regression corpus.
 
 ## Clean-room model
 
@@ -156,14 +178,15 @@ docker run --rm \
 - [x] Dockerized black-box harness with controlled seed injection
 - [x] Raw block-array extraction and repeatability verification
 - [x] Mathematical specification of the full generation pipeline (Lean 4)
-- [ ] Differential fuzzer
-- [ ] Pure reference oracle implemented from the specification
-- [ ] Published test corpus and continuous soak testing
+- [x] Differential fuzzer with a fixed corpus and replayable JSONL reports
+- [x] Reference oracle exercised from the published specification
+- [x] Published v1–v4 differential reports and fixed corpus
+- [ ] Long-term differential analysis / soak testing
 
-## Specification v1
+## Specification
 
-Specification v1 covers the full generation pipeline. `spec/` holds its Lean 4
-formalization, one module per stage:
+The specification covers the full generation pipeline. `spec/` holds its Lean
+4 formalization, one module per stage:
 
 - `Spec/Random.lean` — the 48-bit LCG state, seed initialization, and the
   derived semantics of bounded and unbounded draws
