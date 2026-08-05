@@ -1,0 +1,31 @@
+Fuzzer v2 campaign
+
+  - Status: failed
+  - Run ID: 30e9c67a-4040-4f9a-a3b8-2f17ceb96737
+  - Runtime: 56.0 seconds
+  - Budget: 300s random phase
+  - Replay RNG seed: 20260805
+  - Worker lanes: 32
+  - Cases: 1530 total — 15 fixed, 1515 random
+  - Exact matches: 1529
+  - Mismatches: 1
+  - Oracle errors: 0
+  - Blocks compared: 2,461,790,208
+  - Differing blocks: 44
+
+  Accuracy statistics:
+
+  - Mean per-world accuracy: 99.999999%
+  - Median: 100.000000%
+  - Volume-weighted accuracy: 99.999998%
+  - Mismatched-world mean: 99.998951%
+  - Lowest accuracy: 99.998951%
+
+  Throughput:
+
+  - Cases/second: 27.339
+  - Blocks/second: 43,988,316
+
+  First mismatch: random:1396 seed=-486299723741911703 512x32x256
+  - Differing: 44/4194304
+  - First difference: (x=220,y=9,z=142) @1252572 a=12 b=0
