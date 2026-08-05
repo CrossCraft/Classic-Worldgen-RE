@@ -9,20 +9,6 @@ The target is a black box with a signed 64-bit seed and level dimensions as
 input and a block array as output. Your job is to explain original behavior as
 mathematics. You do not implement or inspect the clean oracle.
 
-## Active goal
-
-```text
-/goal Locate the earliest original-versus-oracle stage divergence for the
-primary case in results/spec-v1-impl-v1/handoff-human2-2026-08-01/, determine
-the mathematical cause from private original-side evidence, and make the
-smallest complete correction to spec/. Validate it against the supplied
-controls, keep all analysis in dirty/, run the required checks, update
-dirty/NOTES.md, and leave every change unstaged for Human 2 to review.
-```
-
-This is the only active goal. Do not broaden into a general rewrite of the
-specification or a clean-oracle implementation.
-
 ## Authorities and allowed evidence
 
 Use these sources, in this order:
