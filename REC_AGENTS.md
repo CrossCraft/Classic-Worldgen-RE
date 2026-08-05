@@ -15,8 +15,8 @@ Use these sources, in this order:
 
 1. The original JAR and original-side harness, studied privately.
 2. The existing mathematical declarations under `spec/`.
-3. The approved compact v3 residual handoff at
-   `results/spec-v3-impl-v3/handoff-human2-2026-08-05/`.
+3. The approved compact v4 residual handoff at
+   `results/spec-v4-impl-v4/handoff-human2-2026-08-05/`.
 4. Public documentation for Java numeric and standard-library behavior when a
    specification declaration already requires that behavior.
 
@@ -105,8 +105,8 @@ must be supported by original-side evidence recorded in `dirty/NOTES.md`.
 
 ## Diagnostic stage protocol
 
-For the v3 primary case — seed `-5759849079018667514`, dimensions
-`512 x 16 x 512` — align private original-side snapshots with these logical
+For the v4 primary case — seed `-486299723741911703`, dimensions
+`512 x 32 x 256` — align private original-side snapshots with these logical
 boundaries:
 
 1. `00_soil.blocks` — initial soil and stone strata
@@ -147,22 +147,24 @@ boundary:
   against the current declarative specification, but original-side evidence
   may still reveal an underspecified mutation rule.
 - If the first difference is `08_surface`, prioritize `surfaceHeight`,
-  `clampedSurfaceHeight`, `clampedSurfaceHeightLower`,
-  `surfacedTerrainSemantics`, material thresholds, scan direction, and the
-  exact field consumed by the pass. For the v3 primary, inspect the raw terrain
-  height, selected surface height, lower clamp endpoint, above-cell test, and
-  sand threshold at the affected columns. Do not merely relax the lower bound;
-  establish the complete endpoint behavior.
-- If `08_surface` matches, inspect the actual first differing flora or tree
-  stage and its eligibility, attempt counts, random draws, bounds, and mutation
-  timing. Do not infer a tree cause from the compact final residual alone.
+  `clampedSurfaceHeight`, `surfacedTerrainSemantics`, material thresholds, scan
+  direction, and the exact field consumed by the pass.
+- If flowers or mushrooms first differ, inspect the corresponding candidate
+  eligibility, attempt counts, random draws, bounds, and mutation timing.
+- If all fields through `10_mushrooms.blocks` match and `11_trees.blocks` first
+  differs, privately audit the v4 notifying-placement semantics: lattice bounds,
+  stated neighbor order, sand/gravel recognition, passable materials, fall
+  destination, overwrite/reaction ordering, and notification delivery from tree
+  base, canopy, and trunk placements. The v4 primary's balanced sand/air final
+  pattern is a hypothesis generator only; do not infer a tree cause before this
+  localization.
 
 Do not force the evidence into these hypotheses. Record and follow the actual
 first divergence.
 
 ## Working loop
 
-1. Read this file, `spec/README.MD`, and the v3 handoff's `README.md`,
+1. Read this file, `spec/README.MD`, and the v4 handoff's `README.md`,
    `cases.jsonl`, and `oracle-stage-sha256.txt` completely.
 2. Read `dirty/NOTES.md` if it exists; otherwise create it before analysis.
 3. Run `just spec-build` to establish the clean-spec baseline.
@@ -173,11 +175,13 @@ first divergence.
 7. Instrument more finely inside that stage to determine the exact formula or
    operational semantic difference. Test competing hypotheses rather than
    inferring from the final material pair alone.
-8. Validate the finding against the v3 primary and every retained control: the
-   two matching `512 x 16 x 512` same-shape controls (`random:102` and
-   `random:509`) and the matching fixed-large-shape control, seed `12345` at
-   `512 x 128 x 512`. Check whether the same corrected rule explains the
-   primary while preserving the controls without seed-specific exceptions.
+8. Validate the finding against the v4 primary and every retained control: the
+   seven matching `512 x 32 x 256` same-shape controls (`random:288`,
+   `random:370`, `random:731`, `random:936`, `random:1156`, `random:1162`, and
+   `random:1197`), the matching v3 regression control, and the matching
+   fixed-large-shape control, seed `12345` at `512 x 128 x 512`. Check whether
+   the same corrected rule explains the primary while preserving the controls
+   without seed-specific exceptions.
 9. Update the smallest relevant portion of `spec/` with a complete mathematical
    correction or clarification.
 10. Run `just spec-build`. If the harness changed, also run `just smoke`.
@@ -218,8 +222,8 @@ Before reporting completion:
 - The first divergent stage is identified by a reproducible private checksum
   comparison, with unobserved earlier-state caveats investigated as needed.
 - The corrected semantics are checked against original-side numeric or state
-  traces for the v3 primary case, both same-shape controls, and the
-  fixed-large-shape control.
+  traces for the v4 primary case, all seven same-shape controls, the v3
+  regression control, and the fixed-large-shape control.
 - The correction is general and contains no seed-, dimension-, coordinate-, or
   output-specific exception.
 - No raw world, stage dump, decompiled content, identifier map, or private trace
