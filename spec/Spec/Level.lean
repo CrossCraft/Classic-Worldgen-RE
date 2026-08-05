@@ -431,11 +431,176 @@ axiom overwriteBlockAway
   Terrain.blockAt (overwriteBlock field position material)
       other.x other.y other.z = Terrain.blockAt field other.x other.y other.z
 
-axiom prepareTreeBase : Terrain.BlockField → Terrain.Position → Terrain.BlockField
+structure LatticePosition where
+  x : Int
+  y : Int
+  z : Int
+
+axiom latticePosition : Terrain.Position → LatticePosition
+
+axiom latticePositionSemantics (position : Terrain.Position) :
+  latticePosition position = {
+    x := Int.ofNat position.x
+    y := Int.ofNat position.y
+    z := Int.ofNat position.z }
+
+axiom naturalPosition : LatticePosition → Terrain.Position
+
+axiom naturalPositionSemantics (position : LatticePosition) :
+  naturalPosition position = {
+    x := position.x.toNat
+    y := position.y.toNat
+    z := position.z.toNat }
+
+opaque latticeInside : Terrain.Dimensions → LatticePosition → Prop
+
+axiom latticeInsideSemantics
+    (dimensions : Terrain.Dimensions) (position : LatticePosition) :
+  latticeInside dimensions position ↔
+    0 ≤ position.x ∧ position.x.toNat < dimensions.width ∧
+    0 ≤ position.y ∧ position.y.toNat < dimensions.verticalSize ∧
+    0 ≤ position.z ∧ position.z.toNat < dimensions.depth
+
+opaque axisNeighborOrder : LatticePosition → List LatticePosition
+
+axiom axisNeighborOrderSemantics (position : LatticePosition) :
+  axisNeighborOrder position = [
+    { x := position.x - 1, y := position.y, z := position.z },
+    { x := position.x + 1, y := position.y, z := position.z },
+    { x := position.x, y := position.y - 1, z := position.z },
+    { x := position.x, y := position.y + 1, z := position.z },
+    { x := position.x, y := position.y, z := position.z - 1 },
+    { x := position.x, y := position.y, z := position.z + 1 }]
+
+opaque fallingMaterial : Nat → Prop
+
+axiom fallingMaterialSemantics (material : Nat) :
+  fallingMaterial material ↔
+    material = Terrain.sandId ∨ material = Terrain.gravelId
+
+opaque fallPassable : Nat → Prop
+
+axiom fallPassableSemantics (material : Nat) :
+  fallPassable material ↔
+    material = Terrain.airId ∨
+    material = Terrain.flowingWaterId ∨
+    material = Terrain.stillWaterId ∨
+    material = Terrain.flowingLavaId ∨
+    material = Terrain.stillLavaId
+
+opaque fallingDestination :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Nat
+
+axiom fallingDestinationSemantics
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (source : Terrain.Position) (inside : Terrain.inside dimensions source) :
+  let destinationY := fallingDestination dimensions field source
+  destinationY ≤ source.y ∧
+    (∀ y : Nat, destinationY ≤ y → y < source.y →
+      fallPassable (Terrain.blockAt field source.x y source.z)) ∧
+    (destinationY = 0 ∨
+      ¬ fallPassable
+        (Terrain.blockAt field source.x (destinationY - 1) source.z))
+
+axiom movedFallingField :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Terrain.BlockField
+
+axiom movedFallingFieldSemantics
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (source : Terrain.Position) :
+  let destination : Terrain.Position := {
+    x := source.x
+    y := fallingDestination dimensions field source
+    z := source.z }
+  movedFallingField dimensions field source =
+    if destination.y = source.y then field
+    else overwriteBlock
+      (overwriteBlock field source Terrain.airId)
+      destination
+      (Terrain.blockAt field source.x source.y source.z)
+
+axiom deliverFallingNotifications :
+  Terrain.Dimensions → Terrain.BlockField → List LatticePosition → Terrain.BlockField
+
+axiom fallingNeighborReaction :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Terrain.BlockField
+
+axiom deliverFallingNotificationsEmpty
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField) :
+  deliverFallingNotifications dimensions field [] = field
+
+axiom deliverFallingNotificationsOutside
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : LatticePosition) (remaining : List LatticePosition)
+    (outside : ¬ latticeInside dimensions position) :
+  deliverFallingNotifications dimensions field (position :: remaining) =
+    deliverFallingNotifications dimensions field remaining
+
+axiom deliverFallingNotificationsPassive
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : LatticePosition) (remaining : List LatticePosition)
+    (inside : latticeInside dimensions position)
+    (passive : ¬ fallingMaterial
+      (Terrain.blockAt field position.x.toNat position.y.toNat position.z.toNat)) :
+  deliverFallingNotifications dimensions field (position :: remaining) =
+    deliverFallingNotifications dimensions field remaining
+
+axiom deliverFallingNotificationsReactive
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : LatticePosition) (remaining : List LatticePosition)
+    (inside : latticeInside dimensions position)
+    (reactive : fallingMaterial
+      (Terrain.blockAt field position.x.toNat position.y.toNat position.z.toNat)) :
+  deliverFallingNotifications dimensions field (position :: remaining) =
+    deliverFallingNotifications dimensions
+      (fallingNeighborReaction dimensions field (naturalPosition position)) remaining
+
+axiom fallingNeighborReactionStationary
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (source : Terrain.Position) (inside : Terrain.inside dimensions source)
+    (stationary : fallingDestination dimensions field source = source.y) :
+  fallingNeighborReaction dimensions field source = field
+
+axiom fallingNeighborReactionMoved
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (source : Terrain.Position) (inside : Terrain.inside dimensions source)
+    (moved : fallingDestination dimensions field source ≠ source.y) :
+  let destination : Terrain.Position := {
+    x := source.x
+    y := fallingDestination dimensions field source
+    z := source.z }
+  fallingNeighborReaction dimensions field source =
+    deliverFallingNotifications dimensions
+      (movedFallingField dimensions field source)
+      (axisNeighborOrder (latticePosition source) ++
+        axisNeighborOrder (latticePosition destination))
+
+axiom notifyingBlockPlacement :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Nat → Terrain.BlockField
+
+axiom notifyingBlockPlacementUnchanged
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : Terrain.Position) (material : Nat)
+    (same : Terrain.blockAt field position.x position.y position.z = material) :
+  notifyingBlockPlacement dimensions field position material = field
+
+axiom notifyingBlockPlacementChanged
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : Terrain.Position) (material : Nat)
+    (inside : Terrain.inside dimensions position)
+    (changed : Terrain.blockAt field position.x position.y position.z ≠ material) :
+  notifyingBlockPlacement dimensions field position material =
+    deliverFallingNotifications dimensions
+      (overwriteBlock field position material)
+      (axisNeighborOrder (latticePosition position))
+
+axiom prepareTreeBase :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Terrain.BlockField
 
 axiom prepareTreeBaseSemantics
-    (field : Terrain.BlockField) (base : Terrain.Position) (positive : 0 < base.y) :
-  prepareTreeBase field base = overwriteBlock field
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (base : Terrain.Position) (positive : 0 < base.y) :
+  prepareTreeBase dimensions field base = notifyingBlockPlacement dimensions field
     { x := base.x, y := base.y - 1, z := base.z } Terrain.dirtId
 
 opaque canopyLayer : Terrain.Position → Nat → Terrain.Position → Nat
@@ -501,23 +666,27 @@ inductive BoundedDrawSequence :
       BoundedDrawSequence (remaining + 1) bound state finalState
 
 inductive CanopyPlacement :
-    Terrain.Position → Nat → List Terrain.Position → Random.State →
+    Terrain.Dimensions → Terrain.Position → Nat → List Terrain.Position → Random.State →
       Terrain.BlockField → Random.State → Terrain.BlockField → Prop where
   | done
+      (dimensions : Terrain.Dimensions)
       (base : Terrain.Position) (height : Nat)
       (state : Random.State) (field : Terrain.BlockField) :
-      CanopyPlacement base height [] state field state field
+      CanopyPlacement dimensions base height [] state field state field
   | filled
+      (dimensions : Terrain.Dimensions)
       (base : Terrain.Position) (height : Nat) (position : Terrain.Position)
       (remaining : List Terrain.Position)
       (state finalState : Random.State) (field finalField : Terrain.BlockField)
       (notCorner : ¬ canopyCorner base height position)
-      (rest : CanopyPlacement base height remaining state
-        (overwriteBlock field position foliageId) finalState finalField) :
-      CanopyPlacement base height (position :: remaining) state field
+      (rest : CanopyPlacement dimensions base height remaining state
+        (notifyingBlockPlacement dimensions field position foliageId)
+        finalState finalField) :
+      CanopyPlacement dimensions base height (position :: remaining) state field
         finalState finalField
 
   | keptCorner
+      (dimensions : Terrain.Dimensions)
       (base : Terrain.Position) (height : Nat) (position : Terrain.Position)
       (remaining : List Terrain.Position)
       (state drawnState finalState : Random.State)
@@ -525,12 +694,14 @@ inductive CanopyPlacement :
       (corner : canopyCorner base height position)
       (draw : Random.nextIntBounded state 2 = (choice, drawnState))
       (kept : choice ≠ 0 ∧ canopyLayer base height position ≠ 3)
-      (rest : CanopyPlacement base height remaining drawnState
-        (overwriteBlock field position foliageId) finalState finalField) :
-      CanopyPlacement base height (position :: remaining) state field
+      (rest : CanopyPlacement dimensions base height remaining drawnState
+        (notifyingBlockPlacement dimensions field position foliageId)
+        finalState finalField) :
+      CanopyPlacement dimensions base height (position :: remaining) state field
         finalState finalField
 
   | skippedCorner
+      (dimensions : Terrain.Dimensions)
       (base : Terrain.Position) (height : Nat) (position : Terrain.Position)
       (remaining : List Terrain.Position)
       (state drawnState finalState : Random.State)
@@ -538,35 +709,68 @@ inductive CanopyPlacement :
       (corner : canopyCorner base height position)
       (draw : Random.nextIntBounded state 2 = (choice, drawnState))
       (skipped : choice = 0 ∨ canopyLayer base height position = 3)
-      (rest : CanopyPlacement base height remaining drawnState field
+      (rest : CanopyPlacement dimensions base height remaining drawnState field
         finalState finalField) :
-      CanopyPlacement base height (position :: remaining) state field
+      CanopyPlacement dimensions base height (position :: remaining) state field
         finalState finalField
 
 axiom canopyPlacementConsumesSixteenCornerDraws
+    (dimensions : Terrain.Dimensions)
     (base : Terrain.Position) (height : Nat)
     (initialState finalState : Random.State)
     (initialField finalField : Terrain.BlockField)
-    (placement : CanopyPlacement base height (canopyTraversal base height)
+    (placement : CanopyPlacement dimensions base height (canopyTraversal base height)
       initialState initialField finalState finalField) :
   BoundedDrawSequence 16 2 initialState finalState
 
-axiom placeTrunk : Terrain.BlockField → Terrain.Position → Nat → Terrain.BlockField
+axiom notifyingPlacementSequence :
+  Terrain.Dimensions → Terrain.BlockField → List Terrain.Position → Nat → Terrain.BlockField
+
+axiom notifyingPlacementSequenceEmpty
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField) (material : Nat) :
+  notifyingPlacementSequence dimensions field [] material = field
+
+axiom notifyingPlacementSequenceStep
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : Terrain.Position) (remaining : List Terrain.Position) (material : Nat) :
+  notifyingPlacementSequence dimensions field (position :: remaining) material =
+    notifyingPlacementSequence dimensions
+      (notifyingBlockPlacement dimensions field position material) remaining material
+
+opaque trunkTraversal : Terrain.Position → Nat → List Terrain.Position
+
+axiom trunkTraversalMembership
+    (base position : Terrain.Position) (height : Nat) :
+  position ∈ trunkTraversal base height ↔
+    position.x = base.x ∧ position.z = base.z ∧
+    base.y ≤ position.y ∧ position.y < base.y + height
+
+axiom trunkTraversalDistinct (base : Terrain.Position) (height : Nat) :
+  (trunkTraversal base height).Nodup
+
+axiom trunkTraversalOrder
+    (base left right : Terrain.Position) (height : Nat)
+    (before between after : List Terrain.Position)
+    (listed : trunkTraversal base height =
+      before ++ left :: between ++ right :: after) :
+  left.y < right.y
+
+axiom placeTrunk :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Nat → Terrain.BlockField
+
+axiom placeTrunkSemantics
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (base : Terrain.Position) (height : Nat) :
+  placeTrunk dimensions field base height =
+    notifyingPlacementSequence dimensions field (trunkTraversal base height) trunkId
 
 axiom placeTrunkInside
-    (field : Terrain.BlockField) (base position : Terrain.Position) (height : Nat)
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (base position : Terrain.Position) (height : Nat)
     (sameColumn : position.x = base.x ∧ position.z = base.z)
     (vertical : base.y ≤ position.y ∧ position.y < base.y + height) :
-  Terrain.blockAt (placeTrunk field base height)
+  Terrain.blockAt (placeTrunk dimensions field base height)
     position.x position.y position.z = trunkId
-
-axiom placeTrunkOutside
-    (field : Terrain.BlockField) (base position : Terrain.Position) (height : Nat)
-    (outside : position.x ≠ base.x ∨ position.z ≠ base.z ∨
-      position.y < base.y ∨ base.y + height ≤ position.y) :
-  Terrain.blockAt (placeTrunk field base height)
-      position.x position.y position.z =
-    Terrain.blockAt field position.x position.y position.z
 
 structure TreeGrowthResult where
   state : Random.State
@@ -592,13 +796,14 @@ axiom growTreeSuccess
     (field canopyField : Terrain.BlockField) (base : Terrain.Position)
     (eligible : treeEligible dimensions field base
       ((Random.nextIntBounded state 3).1 + 4))
-    (canopy : CanopyPlacement base ((Random.nextIntBounded state 3).1 + 4)
+    (canopy : CanopyPlacement dimensions base ((Random.nextIntBounded state 3).1 + 4)
       (canopyTraversal base ((Random.nextIntBounded state 3).1 + 4))
-      (Random.nextIntBounded state 3).2 (prepareTreeBase field base)
+      (Random.nextIntBounded state 3).2 (prepareTreeBase dimensions field base)
       finalState canopyField) :
   growTree dimensions state field base = {
     state := finalState
-    field := placeTrunk canopyField base ((Random.nextIntBounded state 3).1 + 4)
+    field := placeTrunk dimensions canopyField base
+      ((Random.nextIntBounded state 3).1 + 4)
     succeeded := true }
 
 axiom eligibleTreeHasCanopyPlacement
@@ -607,12 +812,13 @@ axiom eligibleTreeHasCanopyPlacement
     (eligible : treeEligible dimensions field base
       ((Random.nextIntBounded state 3).1 + 4)) :
   ∃ canopyField : Terrain.BlockField,
-    CanopyPlacement base ((Random.nextIntBounded state 3).1 + 4)
+    CanopyPlacement dimensions base ((Random.nextIntBounded state 3).1 + 4)
       (canopyTraversal base ((Random.nextIntBounded state 3).1 + 4))
-      (Random.nextIntBounded state 3).2 (prepareTreeBase field base)
+      (Random.nextIntBounded state 3).2 (prepareTreeBase dimensions field base)
       (growTree dimensions state field base).state canopyField ∧
     (growTree dimensions state field base).field =
-      placeTrunk canopyField base ((Random.nextIntBounded state 3).1 + 4) ∧
+      placeTrunk dimensions canopyField base
+        ((Random.nextIntBounded state 3).1 + 4) ∧
     (growTree dimensions state field base).succeeded = true
 
 axiom successfulTreeHeightRange
