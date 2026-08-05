@@ -12,12 +12,14 @@ oracle will reproduce that array without containing or depending on Mojang code.
 
 - **Harness:** operational
 - **Formal specification:** v4 exercised by the latest convergence campaign
-- **Differential fuzzer:** operational, with a replayable fixed corpus and
-  machine-readable reports
+- **Legacy differential fuzzer:** operational, with a replayable fixed corpus
+  and JSONL reports
+- **Burn-in fuzzer v2:** persistent workers, CPU-parallel lanes, SQLite
+  campaigns, and generated summaries
 - **Reference oracle:** v4 exercised against the black-box oracle
 - **Accuracy claim:** 100% agreement in the latest bounded campaign; long-term
   validation is still pending
-- **Next phase:** long-term differential analysis (not yet run)
+- **Next phase:** 12-hour long-term differential analysis on the target host
 
 ## The experiment
 
@@ -64,6 +66,32 @@ equivalence for every valid seed and dimension combination. The next phase is
 long-term differential analysis, which has not yet run. It will extend testing
 across independent replay seeds and dimensions, retain compact reports and
 failure records, and repeatedly include the fixed regression corpus.
+
+## Long-term burn-in (v2)
+
+[`fuzzer_v2/`](fuzzer_v2/README.md) is a strict fork of the original JSONL
+fuzzer for long-lived, multi-core campaigns. It starts a persistent worker for
+each oracle in every lane, sends raw block arrays through a framed binary
+protocol, and records compact per-case facts in a SQLite campaign database.
+The legacy `fuzzer/` interface and all published JSONL reports remain intact.
+
+The v2 runner defaults to all schedulable logical CPUs (384 on the target
+host), while generating oracle A and oracle B sequentially within each lane so
+that this is also the maximum number of active world generations. A campaign
+must explicitly choose either a duration or exact random-case budget; it stops
+on the first mismatch or worker error and writes a deterministic `result.txt`.
+
+```sh
+python3 fuzzer_v2/fuzzer.py \
+  --campaign-dir results/v2-burnin \
+  --duration 12h --jobs 384 \
+  --oracle-a-worker 'ORIGINAL_WORKER_COMMAND' \
+  --oracle-b-worker 'REFERENCE_WORKER_COMMAND'
+```
+
+See [`fuzzer_v2/ORACLE.md`](fuzzer_v2/ORACLE.md) for the persistent worker
+contract and `just worker-smoke` for an original-versus-original protocol
+smoke test.
 
 ## Clean-room model
 
@@ -179,6 +207,7 @@ docker run --rm \
 - [x] Raw block-array extraction and repeatability verification
 - [x] Mathematical specification of the full generation pipeline (Lean 4)
 - [x] Differential fuzzer with a fixed corpus and replayable JSONL reports
+- [x] Persistent SQLite-backed v2 burn-in fuzzer and original-worker smoke test
 - [x] Reference oracle exercised from the published specification
 - [x] Published v1–v4 differential reports and fixed corpus
 - [ ] Long-term differential analysis / soak testing

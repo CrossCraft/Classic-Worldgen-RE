@@ -55,6 +55,18 @@ extract seed filename="level.blocks" width="256" height="64" depth="256": _check
 smoke seed="12345": build
     just verify "{{ seed }}"
 
+# Exercise the persistent v2 protocol against two original-JAR workers.
+# Both sides intentionally use the same black-box worker as a determinism smoke.
+worker-smoke: build _check-jar
+    campaign_dir="$(mktemp -d)"; \
+    trap 'rm -rf "$campaign_dir"' EXIT; \
+    harness_jar_path="$(realpath "{{ classic_jar }}")"; \
+    worker_command="docker run --rm -i --mount type=bind,source=$harness_jar_path,target=/harness/classic.jar,readonly --entrypoint java {{ image }} -javaagent:/opt/classic-harness/classic-harness.jar -cp /opt/classic-harness/classic-harness.jar:/harness/classic.jar org.crosscraft.classicworldgen.PersistentClassicHarness --serve"; \
+    python3 "{{ root }}/fuzzer_v2/smoke_worker.py" --worker "$worker_command"; \
+    python3 "{{ root }}/fuzzer_v2/fuzzer.py" \
+      --campaign-dir "$campaign_dir" --random-cases 0 --rng-seed 0 --jobs 1 \
+      --oracle-a-worker "$worker_command" --oracle-b-worker "$worker_command"
+
 # Run the Python unit tests inside the harness image.
 test: build
     docker run --rm --entrypoint python3 \
