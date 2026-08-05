@@ -15,8 +15,8 @@ Use these sources, in this order:
 
 1. The original JAR and original-side harness, studied privately.
 2. The existing mathematical declarations under `spec/`.
-3. The approved compact handoff at
-   `results/spec-v1-impl-v1/handoff-human2-2026-08-01/`.
+3. The approved compact v2 handoff at
+   `results/spec-v2-impl-v2/handoff-human2-2026-08-05/`.
 4. Public documentation for Java numeric and standard-library behavior when a
    specification declaration already requires that behavior.
 
@@ -105,7 +105,8 @@ must be supported by original-side evidence recorded in `dirty/NOTES.md`.
 
 ## Diagnostic stage protocol
 
-For the primary case, align private original-side snapshots with these logical
+For the v2 primary case — seed `4340555035370659350`, dimensions
+`256 x 16 x 16` — align private original-side snapshots with these logical
 boundaries:
 
 1. `00_soil.blocks` — initial soil and stone strata
@@ -148,15 +149,18 @@ Use the implementation-note hypotheses only after localization:
   `surfacedTerrain`, material thresholds, scan direction, and the exact field
   consumed by the pass.
 - If all earlier stages match, inspect the first differing flora stage and its
-  eligibility, attempt counts, random draws, bounds, and mutation timing.
+  eligibility, attempt counts, random draws, bounds, and mutation timing. If
+  the first difference is `11_trees`, use the v2 primary's compact final patch
+  only as a hypothesis generator; do not treat its block IDs or shape as proof
+  that tree semantics are the root cause.
 
 Do not force the evidence into these hypotheses. Record and follow the actual
 first divergence.
 
 ## Working loop
 
-1. Read this file, `spec/README.MD`, the handoff `README.md`, `cases.jsonl`, and
-   `oracle-stage-sha256.txt` completely.
+1. Read this file, `spec/README.MD`, and the v2 handoff's `README.md`,
+   `cases.jsonl`, and `oracle-stage-sha256.txt` completely.
 2. Read `dirty/NOTES.md` if it exists; otherwise create it before analysis.
 3. Run `just spec-build` to establish the clean-spec baseline.
 4. Reproduce the primary original final hash from the handoff.
@@ -166,9 +170,11 @@ first divergence.
 7. Instrument more finely inside that stage to determine the exact formula or
    operational semantic difference. Test competing hypotheses rather than
    inferring from the final material pair alone.
-8. Validate the finding against the `32 x 32 x 64` variant and at least one
-   matching control. Check whether the same corrected rule explains all of
-   them without seed-specific exceptions.
+8. Validate the finding against the v2 control matrix: the exact same-shape
+   control, matching primary-seed widths through `128 x 16 x 16`, the primary
+   `256 x 16 x 16` mismatch, and the `512 x 16 x 16` variant. Use the height
+   and depth variants as secondary confirmation cases. Check whether the same
+   corrected rule explains all of them without seed-specific exceptions.
 9. Update the smallest relevant portion of `spec/` with a complete mathematical
    correction or clarification.
 10. Run `just spec-build`. If the harness changed, also run `just smoke`.
@@ -209,7 +215,8 @@ Before reporting completion:
 - The first divergent stage is identified by a reproducible private checksum
   comparison, with unobserved earlier-state caveats investigated as needed.
 - The corrected semantics are checked against original-side numeric or state
-  traces for the primary case and at least one control or height variant.
+  traces for the v2 primary case, the exact same-shape control, and at least
+  one dimension probe from the v2 control matrix.
 - The correction is general and contains no seed-, dimension-, coordinate-, or
   output-specific exception.
 - No raw world, stage dump, decompiled content, identifier map, or private trace
