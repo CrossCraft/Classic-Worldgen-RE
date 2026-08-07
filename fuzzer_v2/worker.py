@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import math
 import os
 import select
 import shlex
@@ -71,9 +72,22 @@ class _PipeReader:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise WorkerError(f"{self._label} timed out waiting for protocol data")
-        ready, _, _ = select.select([self._fd], [], [], remaining)
-        if not ready:
+        # select.select() is limited by FD_SETSIZE (normally 1024), which is
+        # too small for a full 384-lane campaign: the coordinator owns stdin,
+        # stdout, and stderr descriptors for 768 persistent workers. poll()
+        # retains the same deadline semantics without that descriptor ceiling.
+        poller = select.poll()
+        poller.register(self._fd, select.POLLIN | select.POLLHUP | select.POLLERR)
+        try:
+            events = poller.poll(math.ceil(remaining * 1000))
+        except OSError as error:
+            raise WorkerError(
+                f"{self._label} could not poll protocol data: {error}"
+            ) from error
+        if not events:
             raise WorkerError(f"{self._label} timed out waiting for protocol data")
+        if events[0][1] & select.POLLNVAL:
+            raise WorkerError(f"{self._label} has an invalid protocol descriptor")
         try:
             data = os.read(self._fd, max_bytes)
         except OSError as error:

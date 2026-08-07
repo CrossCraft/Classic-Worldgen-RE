@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import dataclasses
 import os
 import random
+import signal
 import sqlite3
 import sys
 import time
@@ -26,6 +26,7 @@ from fuzzer_v2.campaign import (  # noqa: E402
     fixed_corpus_sha256,
     random_case,
 )
+from fuzzer_v2.lanes import LanePool  # noqa: E402
 from fuzzer_v2.storage import (  # noqa: E402
     CampaignStorageError,
     CampaignStore,
@@ -33,7 +34,7 @@ from fuzzer_v2.storage import (  # noqa: E402
     database_path,
 )
 from fuzzer_v2.summarize import write_summary  # noqa: E402
-from fuzzer_v2.worker import WorkerError, WorkerPair  # noqa: E402
+from fuzzer_v2.worker import WorkerError  # noqa: E402
 
 PROGRESS_INTERVAL_SECONDS = 30.0
 
@@ -193,60 +194,31 @@ def campaign_config(args: argparse.Namespace, rng_seed: int) -> dict[str, object
     }
 
 
-def _start_pairs(args: argparse.Namespace) -> list[WorkerPair]:
-    pairs = [
-        WorkerPair(lane, args.oracle_a_worker, args.oracle_b_worker, args.scratch_dir)
-        for lane in range(args.jobs)
-    ]
+def _start_pairs(args: argparse.Namespace) -> LanePool:
     parallelism = args.startup_parallelism or min(32, args.jobs)
+    pairs = LanePool(
+        args.jobs,
+        args.oracle_a_worker,
+        args.oracle_b_worker,
+        args.scratch_dir,
+        parallelism,
+        args.startup_timeout,
+    )
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=parallelism) as executor:
-            futures = {
-                executor.submit(pair.start, args.startup_timeout): pair for pair in pairs
-            }
-            try:
-                for future in concurrent.futures.as_completed(futures):
-                    future.result()
-            except Exception:
-                for future in futures:
-                    future.cancel()
-                raise
+        pairs.start()
     except Exception:
-        # The startup executor has joined all still-running start calls, so
-        # terminating here cannot race a late Popen in WorkerPair.start.
-        _close_pairs(pairs, True)
+        pairs.close(True)
         raise
     return pairs
 
 
-def _close_pairs(pairs: list[WorkerPair], force: bool) -> None:
-    if not pairs:
-        return
-    parallelism = min(32, len(pairs))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=parallelism) as executor:
-        futures = [executor.submit(pair.close, force) for pair in pairs]
-        for future in futures:
-            try:
-                future.result()
-            except Exception:
-                # Shutdown is best effort; process-group termination was already attempted.
-                pass
-
-
-def _error_result(case: Case, lane: int, error: BaseException) -> CaseResult:
-    return CaseResult(
-        case=case,
-        lane=lane,
-        seconds=0.0,
-        a_seconds=None,
-        b_seconds=None,
-        outcome="error",
-        error_a=f"fuzzer worker failure: {error}",
-    )
+def _close_pairs(pairs: LanePool | None, force: bool) -> None:
+    if pairs is not None:
+        pairs.close(force)
 
 
 def _run_phase(
-    pairs: list[WorkerPair],
+    pairs: LanePool,
     cases: Iterator[Case],
     store: CampaignStore,
     oracle_timeout: float,
@@ -256,13 +228,12 @@ def _run_phase(
 ) -> _PhaseOutcome:
     """Schedule a source iterator across persistent lanes until terminal state."""
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(pairs))
-    pending: dict[concurrent.futures.Future[CaseResult], tuple[WorkerPair, Case]] = {}
+    pending: dict[int, Case] = {}
     exhausted = False
     last_progress = time.monotonic()
     completed = 0
 
-    def submit_next(pair: WorkerPair) -> bool:
+    def submit_next(lane: int) -> bool:
         nonlocal exhausted
         if exhausted or not may_schedule():
             return False
@@ -271,19 +242,16 @@ def _run_phase(
         except StopIteration:
             exhausted = True
             return False
-        pending[executor.submit(pair.run, case, oracle_timeout)] = (pair, case)
+        pairs.submit(lane, case, oracle_timeout)
+        pending[lane] = case
         return True
 
     try:
-        for pair in pairs:
-            submit_next(pair)
+        for lane in range(pairs.lane_count):
+            submit_next(lane)
         while pending:
-            done, _ = concurrent.futures.wait(
-                pending,
-                timeout=1.0,
-                return_when=concurrent.futures.FIRST_COMPLETED,
-            )
-            if not done:
+            completed_result = pairs.receive(1.0)
+            if completed_result is None:
                 if store.should_flush():
                     store.flush(random_elapsed())
                 if time.monotonic() - last_progress >= PROGRESS_INTERVAL_SECONDS:
@@ -294,23 +262,21 @@ def _run_phase(
                     )
                     last_progress = time.monotonic()
                 continue
-            for future in done:
-                pair, case = pending.pop(future)
-                try:
-                    result = future.result()
-                except Exception as error:
-                    # A coordinator exception is an oracle-error-equivalent failure.
-                    result = _error_result(case, pair.lane, error)
-                store.add_result(result)
-                completed += 1
-                if result.outcome != "match":
-                    store.flush(random_elapsed(), force=True)
-                    _close_pairs(pairs, True)
-                    executor.shutdown(wait=True, cancel_futures=True)
-                    return _PhaseOutcome(result, completed)
-                if store.should_flush():
-                    store.flush(random_elapsed())
-                submit_next(pair)
+            lane, result = completed_result
+            case = pending.pop(lane, None)
+            if case is None:
+                raise WorkerError(f"lane {lane} returned a result without a pending case")
+            if result.case != case:
+                raise WorkerError(f"lane {lane} returned a result for the wrong case")
+            store.add_result(result)
+            completed += 1
+            if result.outcome != "match":
+                store.flush(random_elapsed(), force=True)
+                _close_pairs(pairs, True)
+                return _PhaseOutcome(result, completed)
+            if store.should_flush():
+                store.flush(random_elapsed())
+            submit_next(lane)
             if time.monotonic() - last_progress >= PROGRESS_INTERVAL_SECONDS:
                 print(
                     f"{phase_name} progress: {completed} cases completed; "
@@ -322,15 +288,10 @@ def _run_phase(
         return _PhaseOutcome(None, completed)
     except KeyboardInterrupt:
         _close_pairs(pairs, True)
-        executor.shutdown(wait=True, cancel_futures=True)
         raise
     except Exception:
         _close_pairs(pairs, True)
-        executor.shutdown(wait=True, cancel_futures=True)
         raise
-    finally:
-        # A normal phase retains processes but not the scheduling threads.
-        executor.shutdown(wait=True, cancel_futures=True)
 
 
 def _fixed_iterator(store: CampaignStore) -> Iterator[Case]:
@@ -402,7 +363,7 @@ def run(args: argparse.Namespace) -> int:
     except (CampaignStorageError, OSError, sqlite3.Error) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
-    pairs: list[WorkerPair] = []
+    pairs: LanePool | None = None
     random_elapsed = store.run.random_elapsed_seconds
     random_elapsed_now: Callable[[], float] = lambda: random_elapsed
     terminal_status = "failed"
@@ -414,7 +375,9 @@ def run(args: argparse.Namespace) -> int:
         print(f"oracle A worker: {args.oracle_a_worker}")
         print(f"oracle B worker: {args.oracle_b_worker}")
         pairs = _start_pairs(args)
-        store.add_event("workers_started", f"{len(pairs)} persistent worker lanes ready")
+        store.add_event(
+            "workers_started", f"{pairs.lane_count} persistent worker lanes ready"
+        )
         store.flush(random_elapsed, force=True)
 
         fixed_outcome = _run_phase(
@@ -485,7 +448,7 @@ def run(args: argparse.Namespace) -> int:
         exit_code = 2
         print(f"error: {terminal_detail}", file=sys.stderr)
     finally:
-        if pairs:
+        if pairs is not None:
             _close_pairs(pairs, terminal_status != "complete")
         try:
             store.finish(terminal_status, random_elapsed, terminal_detail)
@@ -502,7 +465,18 @@ def run(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _request_interruption(_signum: int, _frame: object) -> None:
+    """Turn supervisor termination into the normal resumable shutdown path."""
+
+    raise KeyboardInterrupt
+
+
 def main(argv: list[str] | None = None) -> int:
+    # A non-interactive shell starts a background job with SIGINT ignored.  Set
+    # explicit handlers here so both direct Ctrl-C and a service supervisor's
+    # SIGTERM become the existing, resumable KeyboardInterrupt path.
+    signal.signal(signal.SIGINT, _request_interruption)
+    signal.signal(signal.SIGTERM, _request_interruption)
     args = parse_args(sys.argv[1:] if argv is None else argv)
     return run(args)
 
