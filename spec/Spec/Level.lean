@@ -488,6 +488,79 @@ axiom fallPassableSemantics (material : Nat) :
     material = Terrain.flowingLavaId ∨
     material = Terrain.stillLavaId
 
+opaque latticeBlockAt :
+  Terrain.Dimensions → Terrain.BlockField → LatticePosition → Nat
+
+axiom latticeBlockAtInside
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : LatticePosition)
+    (inside : latticeInside dimensions position) :
+  latticeBlockAt dimensions field position =
+    Terrain.blockAt field position.x.toNat position.y.toNat position.z.toNat
+
+axiom latticeBlockAtOutside
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : LatticePosition)
+    (outside : ¬ latticeInside dimensions position) :
+  latticeBlockAt dimensions field position = Terrain.airId
+
+opaque stillFluidMaterial : Nat → Prop
+
+axiom stillFluidMaterialSemantics (material : Nat) :
+  stillFluidMaterial material ↔
+    material = Terrain.stillWaterId ∨ material = Terrain.stillLavaId
+
+opaque fluidMaterial : Nat → Prop
+
+axiom fluidMaterialSemantics (material : Nat) :
+  fluidMaterial material ↔
+    material = Terrain.flowingWaterId ∨
+    material = Terrain.stillWaterId ∨
+    material = Terrain.flowingLavaId ∨
+    material = Terrain.stillLavaId
+
+opaque flowingFluidForm : Nat → Nat
+
+axiom flowingWaterForm :
+  flowingFluidForm Terrain.stillWaterId = Terrain.flowingWaterId
+
+axiom flowingLavaForm :
+  flowingFluidForm Terrain.stillLavaId = Terrain.flowingLavaId
+
+opaque oppositeFluidMaterials : Nat → Nat → Prop
+
+axiom oppositeFluidMaterialsSemantics (selfMaterial changedMaterial : Nat) :
+  oppositeFluidMaterials selfMaterial changedMaterial ↔
+    ((selfMaterial = Terrain.flowingWaterId ∨
+        selfMaterial = Terrain.stillWaterId) ∧
+      (changedMaterial = Terrain.flowingLavaId ∨
+        changedMaterial = Terrain.stillLavaId)) ∨
+    ((selfMaterial = Terrain.flowingLavaId ∨
+        selfMaterial = Terrain.stillLavaId) ∧
+      (changedMaterial = Terrain.flowingWaterId ∨
+        changedMaterial = Terrain.stillWaterId))
+
+opaque fluidExposureNeighbors : LatticePosition → List LatticePosition
+
+axiom fluidExposureNeighborsSemantics (position : LatticePosition) :
+  fluidExposureNeighbors position = [
+    { x := position.x - 1, y := position.y, z := position.z },
+    { x := position.x + 1, y := position.y, z := position.z },
+    { x := position.x, y := position.y, z := position.z - 1 },
+    { x := position.x, y := position.y, z := position.z + 1 },
+    { x := position.x, y := position.y - 1, z := position.z }]
+
+opaque stillFluidExposed :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Prop
+
+axiom stillFluidExposedSemantics
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : Terrain.Position) :
+  stillFluidExposed dimensions field position ↔
+    ∃ neighbor : LatticePosition,
+      neighbor ∈ fluidExposureNeighbors (latticePosition position) ∧
+      latticeBlockAt dimensions field neighbor = Terrain.airId
+
 opaque fallingDestination :
   Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Nat
 
@@ -519,41 +592,69 @@ axiom movedFallingFieldSemantics
       destination
       (Terrain.blockAt field source.x source.y source.z)
 
-axiom deliverFallingNotifications :
-  Terrain.Dimensions → Terrain.BlockField → List LatticePosition → Terrain.BlockField
+axiom deliverNeighborNotifications :
+  Terrain.Dimensions → Terrain.BlockField → Nat →
+    List LatticePosition → Terrain.BlockField
 
 axiom fallingNeighborReaction :
   Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Terrain.BlockField
 
-axiom deliverFallingNotificationsEmpty
-    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField) :
-  deliverFallingNotifications dimensions field [] = field
+axiom fluidNeighborReaction :
+  Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Nat → Terrain.BlockField
 
-axiom deliverFallingNotificationsOutside
+axiom deliverNeighborNotificationsEmpty
     (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (changedMaterial : Nat) :
+  deliverNeighborNotifications dimensions field changedMaterial [] = field
+
+axiom deliverNeighborNotificationsOutside
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (changedMaterial : Nat)
     (position : LatticePosition) (remaining : List LatticePosition)
     (outside : ¬ latticeInside dimensions position) :
-  deliverFallingNotifications dimensions field (position :: remaining) =
-    deliverFallingNotifications dimensions field remaining
+  deliverNeighborNotifications dimensions field changedMaterial
+      (position :: remaining) =
+    deliverNeighborNotifications dimensions field changedMaterial remaining
 
-axiom deliverFallingNotificationsPassive
+axiom deliverNeighborNotificationsPassive
     (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (changedMaterial : Nat)
     (position : LatticePosition) (remaining : List LatticePosition)
     (inside : latticeInside dimensions position)
-    (passive : ¬ fallingMaterial
+    (notFalling : ¬ fallingMaterial
+      (Terrain.blockAt field position.x.toNat position.y.toNat position.z.toNat))
+    (notFluid : ¬ fluidMaterial
       (Terrain.blockAt field position.x.toNat position.y.toNat position.z.toNat)) :
-  deliverFallingNotifications dimensions field (position :: remaining) =
-    deliverFallingNotifications dimensions field remaining
+  deliverNeighborNotifications dimensions field changedMaterial
+      (position :: remaining) =
+    deliverNeighborNotifications dimensions field changedMaterial remaining
 
-axiom deliverFallingNotificationsReactive
+axiom deliverNeighborNotificationsFalling
     (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (changedMaterial : Nat)
     (position : LatticePosition) (remaining : List LatticePosition)
     (inside : latticeInside dimensions position)
     (reactive : fallingMaterial
       (Terrain.blockAt field position.x.toNat position.y.toNat position.z.toNat)) :
-  deliverFallingNotifications dimensions field (position :: remaining) =
-    deliverFallingNotifications dimensions
-      (fallingNeighborReaction dimensions field (naturalPosition position)) remaining
+  deliverNeighborNotifications dimensions field changedMaterial
+      (position :: remaining) =
+    deliverNeighborNotifications dimensions
+      (fallingNeighborReaction dimensions field (naturalPosition position))
+      changedMaterial remaining
+
+axiom deliverNeighborNotificationsFluid
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (changedMaterial : Nat)
+    (position : LatticePosition) (remaining : List LatticePosition)
+    (inside : latticeInside dimensions position)
+    (reactive : fluidMaterial
+      (Terrain.blockAt field position.x.toNat position.y.toNat position.z.toNat)) :
+  deliverNeighborNotifications dimensions field changedMaterial
+      (position :: remaining) =
+    deliverNeighborNotifications dimensions
+      (fluidNeighborReaction dimensions field
+        (naturalPosition position) changedMaterial)
+      changedMaterial remaining
 
 axiom fallingNeighborReactionStationary
     (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
@@ -569,11 +670,52 @@ axiom fallingNeighborReactionMoved
     x := source.x
     y := fallingDestination dimensions field source
     z := source.z }
+  let movedField := movedFallingField dimensions field source
+  let sourceNotified := deliverNeighborNotifications dimensions movedField
+    Terrain.airId (axisNeighborOrder (latticePosition source))
   fallingNeighborReaction dimensions field source =
-    deliverFallingNotifications dimensions
-      (movedFallingField dimensions field source)
-      (axisNeighborOrder (latticePosition source) ++
-        axisNeighborOrder (latticePosition destination))
+    deliverNeighborNotifications dimensions sourceNotified
+      (Terrain.blockAt field source.x source.y source.z)
+      (axisNeighborOrder (latticePosition destination))
+
+axiom fluidNeighborReactionOpposite
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (source : Terrain.Position) (changedMaterial : Nat)
+    (inside : Terrain.inside dimensions source)
+    (fluid : fluidMaterial
+      (Terrain.blockAt field source.x source.y source.z))
+    (opposite : oppositeFluidMaterials
+      (Terrain.blockAt field source.x source.y source.z) changedMaterial) :
+  fluidNeighborReaction dimensions field source changedMaterial =
+    deliverNeighborNotifications dimensions
+      (overwriteBlock field source Terrain.stoneId)
+      Terrain.stoneId (axisNeighborOrder (latticePosition source))
+
+axiom fluidNeighborReactionStillExposed
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (source : Terrain.Position) (changedMaterial : Nat)
+    (inside : Terrain.inside dimensions source)
+    (stillFluid : stillFluidMaterial
+      (Terrain.blockAt field source.x source.y source.z))
+    (notOpposite : ¬ oppositeFluidMaterials
+      (Terrain.blockAt field source.x source.y source.z) changedMaterial)
+    (exposed : stillFluidExposed dimensions field source) :
+  fluidNeighborReaction dimensions field source changedMaterial =
+    overwriteBlock field source
+      (flowingFluidForm (Terrain.blockAt field source.x source.y source.z))
+
+axiom fluidNeighborReactionUnchanged
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (source : Terrain.Position) (changedMaterial : Nat)
+    (inside : Terrain.inside dimensions source)
+    (fluid : fluidMaterial
+      (Terrain.blockAt field source.x source.y source.z))
+    (notOpposite : ¬ oppositeFluidMaterials
+      (Terrain.blockAt field source.x source.y source.z) changedMaterial)
+    (inactive : ¬ stillFluidMaterial
+        (Terrain.blockAt field source.x source.y source.z) ∨
+      ¬ stillFluidExposed dimensions field source) :
+  fluidNeighborReaction dimensions field source changedMaterial = field
 
 axiom notifyingBlockPlacement :
   Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Nat → Terrain.BlockField
@@ -590,8 +732,9 @@ axiom notifyingBlockPlacementChanged
     (inside : Terrain.inside dimensions position)
     (changed : Terrain.blockAt field position.x position.y position.z ≠ material) :
   notifyingBlockPlacement dimensions field position material =
-    deliverFallingNotifications dimensions
+    deliverNeighborNotifications dimensions
       (overwriteBlock field position material)
+      material
       (axisNeighborOrder (latticePosition position))
 
 theorem placementIntoAirNotifiesAxisNeighbors
@@ -601,8 +744,9 @@ theorem placementIntoAirNotifiesAxisNeighbors
     (air : Terrain.blockAt field position.x position.y position.z = Terrain.airId)
     (nonair : material ≠ Terrain.airId) :
   notifyingBlockPlacement dimensions field position material =
-    deliverFallingNotifications dimensions
+    deliverNeighborNotifications dimensions
       (overwriteBlock field position material)
+      material
       (axisNeighborOrder (latticePosition position)) := by
   apply notifyingBlockPlacementChanged dimensions field position material inside
   intro same
