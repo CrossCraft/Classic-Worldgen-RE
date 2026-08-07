@@ -1,4 +1,4 @@
-# Spec rules
+# Spec v6
 
 This directory is the only clean deliverable of Role 2. It contains a formal
 mathematical specification of Minecraft Classic world generation in Lean 4.
