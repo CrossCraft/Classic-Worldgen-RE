@@ -594,6 +594,23 @@ axiom notifyingBlockPlacementChanged
       (overwriteBlock field position material)
       (axisNeighborOrder (latticePosition position))
 
+theorem placementIntoAirNotifiesAxisNeighbors
+    (dimensions : Terrain.Dimensions) (field : Terrain.BlockField)
+    (position : Terrain.Position) (material : Nat)
+    (inside : Terrain.inside dimensions position)
+    (air : Terrain.blockAt field position.x position.y position.z = Terrain.airId)
+    (nonair : material ≠ Terrain.airId) :
+  notifyingBlockPlacement dimensions field position material =
+    deliverFallingNotifications dimensions
+      (overwriteBlock field position material)
+      (axisNeighborOrder (latticePosition position)) := by
+  apply notifyingBlockPlacementChanged dimensions field position material inside
+  intro same
+  apply nonair
+  calc
+    material = Terrain.blockAt field position.x position.y position.z := same.symm
+    _ = Terrain.airId := air
+
 axiom prepareTreeBase :
   Terrain.Dimensions → Terrain.BlockField → Terrain.Position → Terrain.BlockField
 
