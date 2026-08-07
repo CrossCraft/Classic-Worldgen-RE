@@ -15,8 +15,8 @@ Use these sources, in this order:
 
 1. The original JAR and original-side harness, studied privately.
 2. The existing mathematical declarations under `spec/`.
-3. The approved compact v4 residual handoff at
-   `results/spec-v4-impl-v4/handoff-human2-2026-08-05/`.
+3. The approved compact v5 residual handoff at
+   `results/spec-v5-impl-v5/handoff-human2-2026-08-06/`.
 4. Public documentation for Java numeric and standard-library behavior when a
    specification declaration already requires that behavior.
 
@@ -25,11 +25,8 @@ one-way clean stage hashes. Those artifacts are compatibility evidence, not an
 implementation description. The clean oracle is not an authority for original
 behavior.
 
-Never inspect `../Classic-Worldgen`, its source, its build artifacts, its stage
-arrays, or any other clean implementation. Never run a disassembler, debugger,
-search, or source-reading command against that directory. Do not search the web
-for other Minecraft Classic world-generation implementations or source-derived
-explanations.
+Do not search the web for other Minecraft Classic world-generation implementations 
+or source-derived explanations.
 
 ## Clean-room boundary
 
@@ -105,8 +102,8 @@ must be supported by original-side evidence recorded in `dirty/NOTES.md`.
 
 ## Diagnostic stage protocol
 
-For the v4 primary case — seed `-486299723741911703`, dimensions
-`512 x 32 x 256` — align private original-side snapshots with these logical
+For the v5 primary case — seed `-8582786655062038843`, dimensions
+`512 x 128 x 512` — align private original-side snapshots with these logical
 boundaries:
 
 1. `00_soil.blocks` — initial soil and stone strata
@@ -142,29 +139,30 @@ boundary:
   evaluation, binary32 rounding points, and `Spec/Carve.lean` declarations
   `binary64Sine`, `sineTable`, and `trajectorySine`.
 - If the first difference is boundary water, inland water, or lava, inspect
-  source order, reachability, random consumption, reactions, and conversion
-  points. Flood traversal is lower priority because it is already verified
-  against the current declarative specification, but original-side evidence
-  may still reveal an underspecified mutation rule.
+  source order, reachability, random consumption, flowing/still conversion,
+  reactions, overwrite behavior, and notification timing. Flood traversal is
+  lower priority because it is already verified against the current declarative
+  specification, but original-side evidence may still reveal an underspecified
+  mutation rule.
 - If the first difference is `08_surface`, prioritize `surfaceHeight`,
   `clampedSurfaceHeight`, `surfacedTerrainSemantics`, material thresholds, scan
   direction, and the exact field consumed by the pass.
 - If flowers or mushrooms first differ, inspect the corresponding candidate
   eligibility, attempt counts, random draws, bounds, and mutation timing.
 - If all fields through `10_mushrooms.blocks` match and `11_trees.blocks` first
-  differs, privately audit the v4 notifying-placement semantics: lattice bounds,
-  stated neighbor order, sand/gravel recognition, passable materials, fall
-  destination, overwrite/reaction ordering, and notification delivery from tree
-  base, canopy, and trunk placements. The v4 primary's balanced sand/air final
-  pattern is a hypothesis generator only; do not infer a tree cause before this
-  localization.
+  differs, privately audit the v5 changed-placement and axis-neighbor
+  notification semantics: lattice bounds, stated neighbor order, reactive
+  falling materials, passable materials, fall destination, overwrite/reaction
+  ordering, and notifications from tree base, canopy, and trunk placement. The
+  v5 primary's flowing-water/still-water pair is a hypothesis generator only;
+  do not infer a tree cause before this localization.
 
 Do not force the evidence into these hypotheses. Record and follow the actual
 first divergence.
 
 ## Working loop
 
-1. Read this file, `spec/README.MD`, and the v4 handoff's `README.md`,
+1. Read this file, `spec/README.MD`, and the v5 handoff's `README.md`,
    `cases.jsonl`, and `oracle-stage-sha256.txt` completely.
 2. Read `dirty/NOTES.md` if it exists; otherwise create it before analysis.
 3. Run `just spec-build` to establish the clean-spec baseline.
@@ -175,13 +173,15 @@ first divergence.
 7. Instrument more finely inside that stage to determine the exact formula or
    operational semantic difference. Test competing hypotheses rather than
    inferring from the final material pair alone.
-8. Validate the finding against the v4 primary and every retained control: the
-   seven matching `512 x 32 x 256` same-shape controls (`random:288`,
-   `random:370`, `random:731`, `random:936`, `random:1156`, `random:1162`, and
-   `random:1197`), the matching v3 regression control, and the matching
-   fixed-large-shape control, seed `12345` at `512 x 128 x 512`. Check whether
-   the same corrected rule explains the primary while preserving the controls
-   without seed-specific exceptions.
+8. Validate the finding against the v5 primary and every retained control: the
+   fourteen matching `512 x 128 x 512` same-shape controls (`random:316`,
+   `random:530`, `random:768`, `random:791`, `random:912`, `random:1292`,
+   `random:1398`, `random:1723`, `random:1927`, `random:1932`, `random:2027`,
+   `random:2309`, `random:2349`, and `random:2480`), the matching v4 residual
+   control (`random:1396`), the matching v3 regression control, and the
+   matching fixed-large-shape control, seed `12345` at `512 x 128 x 512`.
+   Check whether the same corrected rule explains the primary while preserving
+   the controls without seed-specific exceptions.
 9. Update the smallest relevant portion of `spec/` with a complete mathematical
    correction or clarification.
 10. Run `just spec-build`. If the harness changed, also run `just smoke`.
@@ -222,8 +222,9 @@ Before reporting completion:
 - The first divergent stage is identified by a reproducible private checksum
   comparison, with unobserved earlier-state caveats investigated as needed.
 - The corrected semantics are checked against original-side numeric or state
-  traces for the v4 primary case, all seven same-shape controls, the v3
-  regression control, and the fixed-large-shape control.
+  traces for the v5 primary case, all fourteen same-shape controls, the v4
+  residual control, the v3 regression control, and the fixed-large-shape
+  control.
 - The correction is general and contains no seed-, dimension-, coordinate-, or
   output-specific exception.
 - No raw world, stage dump, decompiled content, identifier map, or private trace
